@@ -10,6 +10,8 @@ export interface Pet {
   health: number;
   energy: number;
   age: number;
+  gameMode: 'casual' | 'realistic';
+  stage: 'egg' | 'baby' | 'adult';
   createdAt: string;
   lastFed: string;
   lastPlayed: string;
@@ -36,6 +38,7 @@ export interface ApiResponse<T> {
 export interface CreatePetRequest {
   name: string;
   species: string;
+  gameMode?: 'casual' | 'realistic';
 }
 
 export interface RegisterRequest {

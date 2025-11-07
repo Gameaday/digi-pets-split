@@ -106,6 +106,11 @@ export const api = {
       method: 'POST',
     }),
   
+  hatchEgg: (id: string) =>
+    fetchAPI<Pet>(`/pets/${id}/hatch`, {
+      method: 'POST',
+    }),
+  
   deletePet: (id: string) =>
     fetchAPI<{ message: string }>(`/pets/${id}`, {
       method: 'DELETE',

@@ -7,7 +7,7 @@ const MAX_STAT = 100;
 const MIN_STAT = 0;
 
 export class PetService {
-  createPet(userId: string, name: string, species: string): Pet {
+  createPet(userId: string, name: string, species: string, gameMode: 'casual' | 'realistic' = 'casual'): Pet {
     if (!name || name.trim().length === 0) {
       throw new Error('Pet name is required');
     }
@@ -32,6 +32,8 @@ export class PetService {
       health: 100,
       energy: 100,
       age: 0,
+      gameMode,
+      stage: 'baby',
       createdAt: new Date(now),
       lastFed: new Date(now),
       lastPlayed: new Date(now),
@@ -41,12 +43,12 @@ export class PetService {
     db.prepare(`
       INSERT INTO pets (
         id, user_id, name, species, level, experience,
-        hunger, happiness, health, energy, age,
+        hunger, happiness, health, energy, age, game_mode, stage,
         created_at, last_fed, last_played, last_slept
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       pet.id, pet.userId, pet.name, pet.species, pet.level, pet.experience,
-      pet.hunger, pet.happiness, pet.health, pet.energy, pet.age,
+      pet.hunger, pet.happiness, pet.health, pet.energy, pet.age, pet.gameMode, pet.stage,
       now, now, now, now
     );
 
@@ -186,6 +188,8 @@ export class PetService {
       health: row.health,
       energy: row.energy,
       age: row.age,
+      gameMode: row.game_mode || 'casual',
+      stage: row.stage || 'baby',
       createdAt: new Date(row.created_at),
       lastFed: new Date(row.last_fed),
       lastPlayed: new Date(row.last_played),
@@ -199,12 +203,12 @@ export class PetService {
     db.prepare(`
       UPDATE pets SET
         level = ?, experience = ?, hunger = ?, happiness = ?,
-        health = ?, energy = ?, age = ?,
+        health = ?, energy = ?, age = ?, stage = ?,
         last_fed = ?, last_played = ?, last_slept = ?
       WHERE id = ?
     `).run(
       pet.level, pet.experience, pet.hunger, pet.happiness,
-      pet.health, pet.energy, pet.age,
+      pet.health, pet.energy, pet.age, pet.stage,
       pet.lastFed.toISOString(), pet.lastPlayed.toISOString(), pet.lastSlept.toISOString(),
       pet.id
     );
@@ -215,23 +219,83 @@ export class PetService {
     const hoursSinceLastFed = (now - pet.lastFed.getTime()) / (1000 * 60 * 60);
     const hoursSinceCreation = (now - pet.createdAt.getTime()) / (1000 * 60 * 60);
 
-    // Decrease hunger over time - much slower rate (0.5 per hour = 12 per day)
-    // This means pets can go 4+ days without feeding before hunger reaches critical levels
-    pet.hunger = Math.max(MIN_STAT, pet.hunger - Math.floor(hoursSinceLastFed * 0.5));
-
-    // Decrease happiness if hungry - but only when very hungry
-    if (pet.hunger < 20) {
-      pet.happiness = Math.max(MIN_STAT, pet.happiness - Math.floor(hoursSinceLastFed * 0.25));
+    // If pet is an egg, no stat degradation
+    if (pet.stage === 'egg') {
+      return;
     }
 
-    // Health only decreases when pet is extremely hungry AND unhappy
-    // This prevents death from neglect
-    if (pet.hunger < 10 && pet.happiness < 20) {
-      pet.health = Math.max(20, pet.health - Math.floor(hoursSinceLastFed * 0.1));
+    // Different behavior based on game mode
+    if (pet.gameMode === 'casual') {
+      // Casual mode: Pets are very forgiving and never turn into eggs
+      // Decrease hunger over time - much slower rate (0.5 per hour = 12 per day)
+      pet.hunger = Math.max(MIN_STAT, pet.hunger - Math.floor(hoursSinceLastFed * 0.5));
+
+      // Decrease happiness if hungry - but only when very hungry
+      if (pet.hunger < 20) {
+        pet.happiness = Math.max(MIN_STAT, pet.happiness - Math.floor(hoursSinceLastFed * 0.25));
+      }
+
+      // Health only decreases when pet is extremely hungry AND unhappy
+      // Minimum health of 20 - pets cannot die
+      if (pet.hunger < 10 && pet.happiness < 20) {
+        pet.health = Math.max(20, pet.health - Math.floor(hoursSinceLastFed * 0.1));
+      }
+    } else {
+      // Realistic mode: More challenging, pets can turn into eggs if neglected
+      // Hunger decreases faster (1 per hour = 24 per day)
+      pet.hunger = Math.max(MIN_STAT, pet.hunger - Math.floor(hoursSinceLastFed * 1));
+
+      // Decrease happiness when hungry
+      if (pet.hunger < 30) {
+        pet.happiness = Math.max(MIN_STAT, pet.happiness - Math.floor(hoursSinceLastFed * 0.5));
+      }
+
+      // Health decreases when very hungry
+      if (pet.hunger < 20) {
+        pet.health = Math.max(MIN_STAT, pet.health - Math.floor(hoursSinceLastFed * 0.3));
+      }
+
+      // Check if pet should turn into an egg (realistic mode only)
+      // Grace period: only if pet has been neglected for more than 3 days (72 hours)
+      // AND stats are critically low
+      const daysNeglected = hoursSinceLastFed / 24;
+      if (daysNeglected > 3 && pet.hunger < 10 && pet.happiness < 10 && pet.health < 30) {
+        pet.stage = 'egg';
+        // Reset stats to starting values but keep level and experience
+        pet.hunger = 50;
+        pet.happiness = 50;
+        pet.health = 100;
+        pet.energy = 100;
+      }
     }
 
     // Update age (in hours)
     pet.age = Math.floor(hoursSinceCreation);
+    
+    // Auto-evolve from baby to adult at level 5
+    if (pet.stage === 'baby' && pet.level >= 5) {
+      pet.stage = 'adult';
+    }
+  }
+
+  // Method to hatch an egg
+  hatchEgg(userId: string, id: string): Pet {
+    const pet = this.getPet(userId, id);
+    if (!pet) {
+      throw new Error('Pet not found');
+    }
+
+    if (pet.stage !== 'egg') {
+      throw new Error('Pet is not an egg');
+    }
+
+    pet.stage = 'baby';
+    pet.lastFed = new Date();
+    pet.lastPlayed = new Date();
+    pet.lastSlept = new Date();
+    this.savePet(pet);
+
+    return pet;
   }
 
   private checkLevelUp(pet: Pet): void {

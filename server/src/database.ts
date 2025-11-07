@@ -44,6 +44,8 @@ export class DatabaseService {
         health INTEGER NOT NULL,
         energy INTEGER NOT NULL,
         age INTEGER NOT NULL,
+        game_mode TEXT NOT NULL DEFAULT 'casual',
+        stage TEXT NOT NULL DEFAULT 'baby',
         created_at TEXT NOT NULL,
         last_fed TEXT NOT NULL,
         last_played TEXT NOT NULL,
@@ -56,6 +58,19 @@ export class DatabaseService {
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_pets_user_id ON pets(user_id)
     `);
+    
+    // Migrate existing pets to have game_mode and stage columns if they don't exist
+    try {
+      this.db.exec(`ALTER TABLE pets ADD COLUMN game_mode TEXT NOT NULL DEFAULT 'casual'`);
+    } catch (e) {
+      // Column already exists
+    }
+    
+    try {
+      this.db.exec(`ALTER TABLE pets ADD COLUMN stage TEXT NOT NULL DEFAULT 'baby'`);
+    } catch (e) {
+      // Column already exists
+    }
   }
 
   getDatabase(): Database.Database {

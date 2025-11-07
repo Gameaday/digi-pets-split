@@ -59,6 +59,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [newPetName, setNewPetName] = useState('');
   const [selectedSpecies, setSelectedSpecies] = useState('');
+  const [selectedGameMode, setSelectedGameMode] = useState<'casual' | 'realistic'>('casual');
   const [confirmDialog, setConfirmDialog] = useState<{ show: boolean; petId: string; petName: string }>({
     show: false,
     petId: '',
@@ -162,12 +163,23 @@ function App() {
     const res = await api.createPet({
       name: newPetName,
       species: selectedSpecies,
+      gameMode: selectedGameMode,
     });
 
     if (!res.success) {
       setError(res.error || 'Failed to create pet');
     } else {
       setNewPetName('');
+      await loadData();
+    }
+  };
+
+  const handleHatchEgg = async (petId: string) => {
+    const res = await api.hatchEgg(petId);
+    if (!res.success) {
+      setError(res.error || 'Failed to hatch egg');
+      setTimeout(() => setError(null), 3000);
+    } else {
       await loadData();
     }
   };
@@ -331,6 +343,17 @@ function App() {
             ))}
           </select>
         </div>
+        <div className="form-group">
+          <label htmlFor="gameMode">Game Mode:</label>
+          <select
+            id="gameMode"
+            value={selectedGameMode}
+            onChange={(e) => setSelectedGameMode(e.target.value as 'casual' | 'realistic')}
+          >
+            <option value="casual">Casual (Forgiving, pets never turn into eggs)</option>
+            <option value="realistic">Realistic (Challenging, pets can turn into eggs if neglected 3+ days)</option>
+          </select>
+        </div>
         <button type="submit">Create Pet</button>
       </form>
 
@@ -342,10 +365,39 @@ function App() {
         <div className="pets-grid">
           {pets.map((pet) => (
             <div key={pet.id} className="pet-card">
+              {pet.stage === 'egg' ? (
+                // Egg view
+                <div>
+                  <div className="pet-header">
+                    <div>
+                      <div className="pet-name">🥚 {pet.name}</div>
+                      <div className="pet-species">{pet.species} Egg</div>
+                    </div>
+                    <div style={{ fontSize: '1rem', color: '#999' }}>
+                      Level {pet.level}
+                    </div>
+                  </div>
+                  <div style={{ padding: '2rem', textAlign: 'center' }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🥚</div>
+                    <p style={{ color: '#666', marginBottom: '1.5rem' }}>
+                      Your pet turned into an egg due to neglect.<br />
+                      Click below to hatch it!
+                    </p>
+                    <button onClick={() => handleHatchEgg(pet.id)} style={{ width: '100%' }}>
+                      🐣 Hatch Egg
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Normal pet view
+                <div>
               <div className="pet-header">
                 <div>
-                  <div className="pet-name">{pet.name}</div>
+                  <div className="pet-name">{pet.stage === 'baby' ? '👶' : '🦖'} {pet.name}</div>
                   <div className="pet-species">{pet.species}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#999' }}>
+                    {pet.gameMode === 'casual' ? '🌟 Casual' : '⚡ Realistic'} Mode
+                  </div>
                 </div>
                 <div style={{ fontSize: '2rem' }}>
                   Level {pet.level}
@@ -442,6 +494,8 @@ function App() {
                   🗑️ Release
                 </button>
               </div>
+            </div>
+              )}
             </div>
           ))}
         </div>

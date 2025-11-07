@@ -129,8 +129,8 @@ router.get('/species', (_req: Request, res: Response) => {
 // Create a new pet (requires authentication)
 router.post('/pets', authenticateToken, validateCreatePet, (req: Request, res: Response) => {
   try {
-    const { name, species } = req.body as CreatePetRequest;
-    const pet = petService.createPet(req.userId!, name, species);
+    const { name, species, gameMode } = req.body as CreatePetRequest;
+    const pet = petService.createPet(req.userId!, name, species, gameMode || 'casual');
     
     res.status(201).json({
       success: true,
@@ -258,6 +258,24 @@ router.delete('/pets/:id', authenticateToken, validatePetId, (req: Request, res:
     } as ApiResponse<{ message: string }>);
   } catch (error) {
     res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse<never>);
+  }
+});
+
+// Hatch an egg
+router.post('/pets/:id/hatch', authenticateToken, validatePetId, (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const pet = petService.hatchEgg(req.userId!, id);
+    
+    res.json({
+      success: true,
+      data: pet
+    } as ApiResponse<typeof pet>);
+  } catch (error) {
+    res.status(400).json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     } as ApiResponse<never>);
