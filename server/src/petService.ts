@@ -92,14 +92,14 @@ export class PetService {
     }
 
     const timeSinceLastFed = Date.now() - pet.lastFed.getTime();
-    const cooldown = 5 * 60 * 1000; // 5 minutes
+    const cooldown = 2 * 60 * 1000; // 2 minutes (reduced from 5)
 
     if (timeSinceLastFed < cooldown) {
       throw new Error('Pet is not hungry yet');
     }
 
-    pet.hunger = Math.min(MAX_STAT, pet.hunger + 30);
-    pet.health = Math.min(MAX_STAT, pet.health + 5);
+    pet.hunger = Math.min(MAX_STAT, pet.hunger + 40); // Increased from 30
+    pet.health = Math.min(MAX_STAT, pet.health + 10); // Increased from 5
     pet.lastFed = new Date();
     pet.experience += 10;
     this.checkLevelUp(pet);
@@ -114,20 +114,20 @@ export class PetService {
       throw new Error('Pet not found');
     }
 
-    if (pet.energy < 20) {
+    if (pet.energy < 15) { // Reduced from 20 to allow playing at lower energy
       throw new Error('Pet is too tired to play');
     }
 
     const timeSinceLastPlayed = Date.now() - pet.lastPlayed.getTime();
-    const cooldown = 3 * 60 * 1000; // 3 minutes
+    const cooldown = 2 * 60 * 1000; // 2 minutes (reduced from 3)
 
     if (timeSinceLastPlayed < cooldown) {
       throw new Error('Pet needs a break');
     }
 
-    pet.happiness = Math.min(MAX_STAT, pet.happiness + 25);
-    pet.energy = Math.max(MIN_STAT, pet.energy - 15);
-    pet.hunger = Math.max(MIN_STAT, pet.hunger - 10);
+    pet.happiness = Math.min(MAX_STAT, pet.happiness + 30); // Increased from 25
+    pet.energy = Math.max(MIN_STAT, pet.energy - 10); // Reduced cost from 15
+    pet.hunger = Math.max(MIN_STAT, pet.hunger - 5); // Reduced cost from 10
     pet.lastPlayed = new Date();
     pet.experience += 15;
     this.checkLevelUp(pet);
@@ -143,14 +143,14 @@ export class PetService {
     }
 
     const timeSinceLastSlept = Date.now() - pet.lastSlept.getTime();
-    const cooldown = 10 * 60 * 1000; // 10 minutes
+    const cooldown = 5 * 60 * 1000; // 5 minutes (reduced from 10)
 
     if (timeSinceLastSlept < cooldown) {
       throw new Error('Pet is not tired yet');
     }
 
-    pet.energy = Math.min(MAX_STAT, pet.energy + 40);
-    pet.health = Math.min(MAX_STAT, pet.health + 10);
+    pet.energy = Math.min(MAX_STAT, pet.energy + 50); // Increased from 40
+    pet.health = Math.min(MAX_STAT, pet.health + 15); // Increased from 10
     pet.lastSlept = new Date();
     pet.experience += 5;
     this.checkLevelUp(pet);
@@ -215,17 +215,19 @@ export class PetService {
     const hoursSinceLastFed = (now - pet.lastFed.getTime()) / (1000 * 60 * 60);
     const hoursSinceCreation = (now - pet.createdAt.getTime()) / (1000 * 60 * 60);
 
-    // Decrease hunger over time
-    pet.hunger = Math.max(MIN_STAT, pet.hunger - Math.floor(hoursSinceLastFed * 2));
+    // Decrease hunger over time - much slower rate (0.5 per hour = 12 per day)
+    // This means pets can go 4+ days without feeding before hunger reaches critical levels
+    pet.hunger = Math.max(MIN_STAT, pet.hunger - Math.floor(hoursSinceLastFed * 0.5));
 
-    // Decrease happiness if hungry
-    if (pet.hunger < 30) {
-      pet.happiness = Math.max(MIN_STAT, pet.happiness - Math.floor(hoursSinceLastFed));
+    // Decrease happiness if hungry - but only when very hungry
+    if (pet.hunger < 20) {
+      pet.happiness = Math.max(MIN_STAT, pet.happiness - Math.floor(hoursSinceLastFed * 0.25));
     }
 
-    // Decrease health if very hungry
-    if (pet.hunger < 20) {
-      pet.health = Math.max(MIN_STAT, pet.health - Math.floor(hoursSinceLastFed * 0.5));
+    // Health only decreases when pet is extremely hungry AND unhappy
+    // This prevents death from neglect
+    if (pet.hunger < 10 && pet.happiness < 20) {
+      pet.health = Math.max(20, pet.health - Math.floor(hoursSinceLastFed * 0.1));
     }
 
     // Update age (in hours)
