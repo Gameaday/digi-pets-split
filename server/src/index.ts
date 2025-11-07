@@ -24,6 +24,8 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // CORS configuration
+// NOTE: In production, replace * with specific allowed origins for security
+// Example: const corsOrigin = process.env.CORS_ORIGIN || 'https://yourdomain.com'
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || '*',
   optionsSuccessStatus: 200
