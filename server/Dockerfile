@@ -17,11 +17,15 @@ RUN npm run build
 # Remove dev dependencies for smaller image
 RUN npm prune --production
 
+# Create data directory for SQLite database
+RUN mkdir -p /app/data
+
 # Expose port
 EXPOSE 3000
 
 # Set environment
 ENV NODE_ENV=production
+ENV DB_PATH=/app/data/pets.db
 
 # Start server
 CMD ["npm", "start"]

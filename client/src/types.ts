@@ -1,5 +1,6 @@
 export interface Pet {
   id: string;
+  userId: string;
   name: string;
   species: string;
   level: number;
@@ -15,6 +16,17 @@ export interface Pet {
   lastSlept: string;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  createdAt: string;
+}
+
+export interface AuthResult {
+  user: User;
+  token: string;
+}
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -24,4 +36,14 @@ export interface ApiResponse<T> {
 export interface CreatePetRequest {
   name: string;
   species: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
 }

@@ -1,5 +1,6 @@
 export interface Pet {
   id: string;
+  userId: string;
   name: string;
   species: string;
   level: number;
@@ -18,13 +19,22 @@ export interface Pet {
 export interface User {
   id: string;
   username: string;
-  pets: Pet[];
   createdAt: Date;
 }
 
 export interface CreatePetRequest {
   name: string;
   species: string;
+}
+
+export interface RegisterRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
 }
 
 export interface ActionRequest {
@@ -35,4 +45,13 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// Express Request with authenticated user
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+    }
+  }
 }

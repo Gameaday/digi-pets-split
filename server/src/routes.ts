@@ -1,9 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { PetService } from './petService';
-import { CreatePetRequest, ActionRequest, ApiResponse } from './types';
+import { AuthService } from './authService';
+import { authenticateToken } from './authMiddleware';
+import { CreatePetRequest, RegisterRequest, LoginRequest, ApiResponse } from './types';
 
 const router = express.Router();
 const petService = new PetService();
+const authService = new AuthService();
 
 // Middleware for request validation
 const validateCreatePet = (req: Request, res: Response, next: NextFunction) => {
@@ -39,7 +42,75 @@ const validatePetId = (req: Request, res: Response, next: NextFunction) => {
   next();
 };
 
-// Get all available species
+// ============================================================================
+// Authentication Routes
+// ============================================================================
+
+// Register a new user
+router.post('/auth/register', async (req: Request, res: Response) => {
+  try {
+    const { username, password } = req.body as RegisterRequest;
+    const result = await authService.register(username, password);
+    
+    res.status(201).json({
+      success: true,
+      data: result
+    } as ApiResponse<typeof result>);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Registration failed'
+    } as ApiResponse<never>);
+  }
+});
+
+// Login
+router.post('/auth/login', async (req: Request, res: Response) => {
+  try {
+    const { username, password } = req.body as LoginRequest;
+    const result = await authService.login(username, password);
+    
+    res.json({
+      success: true,
+      data: result
+    } as ApiResponse<typeof result>);
+  } catch (error) {
+    res.status(401).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Login failed'
+    } as ApiResponse<never>);
+  }
+});
+
+// Get current user info
+router.get('/auth/me', authenticateToken, (req: Request, res: Response) => {
+  try {
+    const user = authService.getUserById(req.userId!);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      } as ApiResponse<never>);
+    }
+
+    res.json({
+      success: true,
+      data: user
+    } as ApiResponse<typeof user>);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    } as ApiResponse<never>);
+  }
+});
+
+// ============================================================================
+// Pet Routes (All require authentication)
+// ============================================================================
+
+// Get all available species (public)
 router.get('/species', (_req: Request, res: Response) => {
   try {
     const species = petService.getAvailableSpecies();
@@ -55,11 +126,11 @@ router.get('/species', (_req: Request, res: Response) => {
   }
 });
 
-// Create a new pet
-router.post('/pets', validateCreatePet, (req: Request, res: Response) => {
+// Create a new pet (requires authentication)
+router.post('/pets', authenticateToken, validateCreatePet, (req: Request, res: Response) => {
   try {
     const { name, species } = req.body as CreatePetRequest;
-    const pet = petService.createPet(name, species);
+    const pet = petService.createPet(req.userId!, name, species);
     
     res.status(201).json({
       success: true,
@@ -73,10 +144,10 @@ router.post('/pets', validateCreatePet, (req: Request, res: Response) => {
   }
 });
 
-// Get all pets
-router.get('/pets', (_req: Request, res: Response) => {
+// Get all pets for current user
+router.get('/pets', authenticateToken, (_req: Request, res: Response) => {
   try {
-    const pets = petService.getAllPets();
+    const pets = petService.getAllPets(_req.userId!);
     res.json({
       success: true,
       data: pets
@@ -90,10 +161,10 @@ router.get('/pets', (_req: Request, res: Response) => {
 });
 
 // Get a specific pet
-router.get('/pets/:id', validatePetId, (req: Request, res: Response) => {
+router.get('/pets/:id', authenticateToken, validatePetId, (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const pet = petService.getPet(id);
+    const pet = petService.getPet(req.userId!, id);
     
     if (!pet) {
       return res.status(404).json({
@@ -115,10 +186,10 @@ router.get('/pets/:id', validatePetId, (req: Request, res: Response) => {
 });
 
 // Feed a pet
-router.post('/pets/:id/feed', validatePetId, (req: Request, res: Response) => {
+router.post('/pets/:id/feed', authenticateToken, validatePetId, (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const pet = petService.feedPet(id);
+    const pet = petService.feedPet(req.userId!, id);
     
     res.json({
       success: true,
@@ -133,10 +204,10 @@ router.post('/pets/:id/feed', validatePetId, (req: Request, res: Response) => {
 });
 
 // Play with a pet
-router.post('/pets/:id/play', validatePetId, (req: Request, res: Response) => {
+router.post('/pets/:id/play', authenticateToken, validatePetId, (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const pet = petService.playWithPet(id);
+    const pet = petService.playWithPet(req.userId!, id);
     
     res.json({
       success: true,
@@ -151,10 +222,10 @@ router.post('/pets/:id/play', validatePetId, (req: Request, res: Response) => {
 });
 
 // Rest a pet
-router.post('/pets/:id/rest', validatePetId, (req: Request, res: Response) => {
+router.post('/pets/:id/rest', authenticateToken, validatePetId, (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const pet = petService.restPet(id);
+    const pet = petService.restPet(req.userId!, id);
     
     res.json({
       success: true,
@@ -169,10 +240,10 @@ router.post('/pets/:id/rest', validatePetId, (req: Request, res: Response) => {
 });
 
 // Delete a pet
-router.delete('/pets/:id', validatePetId, (req: Request, res: Response) => {
+router.delete('/pets/:id', authenticateToken, validatePetId, (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = petService.deletePet(id);
+    const deleted = petService.deletePet(req.userId!, id);
     
     if (!deleted) {
       return res.status(404).json({

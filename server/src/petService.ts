@@ -1,14 +1,13 @@
 import { Pet } from './types';
 import { v4 as uuidv4 } from 'uuid';
+import { getDB } from './database';
 
 const SPECIES = ['Agumon', 'Gabumon', 'Patamon', 'Tailmon', 'Tentomon'];
 const MAX_STAT = 100;
 const MIN_STAT = 0;
 
 export class PetService {
-  private pets: Map<string, Pet> = new Map();
-
-  createPet(name: string, species: string): Pet {
+  createPet(userId: string, name: string, species: string): Pet {
     if (!name || name.trim().length === 0) {
       throw new Error('Pet name is required');
     }
@@ -17,8 +16,13 @@ export class PetService {
       throw new Error(`Invalid species. Must be one of: ${SPECIES.join(', ')}`);
     }
 
+    const db = getDB().getDatabase();
+    const petId = uuidv4();
+    const now = new Date().toISOString();
+
     const pet: Pet = {
-      id: uuidv4(),
+      id: petId,
+      userId,
       name: name.trim(),
       species,
       level: 1,
@@ -28,33 +32,61 @@ export class PetService {
       health: 100,
       energy: 100,
       age: 0,
-      createdAt: new Date(),
-      lastFed: new Date(),
-      lastPlayed: new Date(),
-      lastSlept: new Date(),
+      createdAt: new Date(now),
+      lastFed: new Date(now),
+      lastPlayed: new Date(now),
+      lastSlept: new Date(now),
     };
 
-    this.pets.set(pet.id, pet);
+    db.prepare(`
+      INSERT INTO pets (
+        id, user_id, name, species, level, experience,
+        hunger, happiness, health, energy, age,
+        created_at, last_fed, last_played, last_slept
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      pet.id, pet.userId, pet.name, pet.species, pet.level, pet.experience,
+      pet.hunger, pet.happiness, pet.health, pet.energy, pet.age,
+      now, now, now, now
+    );
+
     return pet;
   }
 
-  getPet(id: string): Pet | undefined {
-    const pet = this.pets.get(id);
-    if (pet) {
-      this.updatePetStats(pet);
+  getPet(userId: string, id: string): Pet | undefined {
+    const db = getDB().getDatabase();
+    
+    const row = db.prepare(`
+      SELECT * FROM pets WHERE id = ? AND user_id = ?
+    `).get(id, userId) as any;
+
+    if (!row) {
+      return undefined;
     }
+
+    const pet = this.rowToPet(row);
+    this.updatePetStats(pet);
+    this.savePet(pet);
     return pet;
   }
 
-  getAllPets(): Pet[] {
-    return Array.from(this.pets.values()).map(pet => {
+  getAllPets(userId: string): Pet[] {
+    const db = getDB().getDatabase();
+    
+    const rows = db.prepare(`
+      SELECT * FROM pets WHERE user_id = ? ORDER BY created_at DESC
+    `).all(userId) as any[];
+
+    return rows.map(row => {
+      const pet = this.rowToPet(row);
       this.updatePetStats(pet);
+      this.savePet(pet);
       return pet;
     });
   }
 
-  feedPet(id: string): Pet {
-    const pet = this.getPet(id);
+  feedPet(userId: string, id: string): Pet {
+    const pet = this.getPet(userId, id);
     if (!pet) {
       throw new Error('Pet not found');
     }
@@ -71,12 +103,13 @@ export class PetService {
     pet.lastFed = new Date();
     pet.experience += 10;
     this.checkLevelUp(pet);
+    this.savePet(pet);
 
     return pet;
   }
 
-  playWithPet(id: string): Pet {
-    const pet = this.getPet(id);
+  playWithPet(userId: string, id: string): Pet {
+    const pet = this.getPet(userId, id);
     if (!pet) {
       throw new Error('Pet not found');
     }
@@ -98,12 +131,13 @@ export class PetService {
     pet.lastPlayed = new Date();
     pet.experience += 15;
     this.checkLevelUp(pet);
+    this.savePet(pet);
 
     return pet;
   }
 
-  restPet(id: string): Pet {
-    const pet = this.getPet(id);
+  restPet(userId: string, id: string): Pet {
+    const pet = this.getPet(userId, id);
     if (!pet) {
       throw new Error('Pet not found');
     }
@@ -120,16 +154,60 @@ export class PetService {
     pet.lastSlept = new Date();
     pet.experience += 5;
     this.checkLevelUp(pet);
+    this.savePet(pet);
 
     return pet;
   }
 
-  deletePet(id: string): boolean {
-    return this.pets.delete(id);
+  deletePet(userId: string, id: string): boolean {
+    const db = getDB().getDatabase();
+    
+    const result = db.prepare(`
+      DELETE FROM pets WHERE id = ? AND user_id = ?
+    `).run(id, userId);
+
+    return result.changes > 0;
   }
 
   getAvailableSpecies(): string[] {
     return [...SPECIES];
+  }
+
+  private rowToPet(row: any): Pet {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      name: row.name,
+      species: row.species,
+      level: row.level,
+      experience: row.experience,
+      hunger: row.hunger,
+      happiness: row.happiness,
+      health: row.health,
+      energy: row.energy,
+      age: row.age,
+      createdAt: new Date(row.created_at),
+      lastFed: new Date(row.last_fed),
+      lastPlayed: new Date(row.last_played),
+      lastSlept: new Date(row.last_slept),
+    };
+  }
+
+  private savePet(pet: Pet): void {
+    const db = getDB().getDatabase();
+    
+    db.prepare(`
+      UPDATE pets SET
+        level = ?, experience = ?, hunger = ?, happiness = ?,
+        health = ?, energy = ?, age = ?,
+        last_fed = ?, last_played = ?, last_slept = ?
+      WHERE id = ?
+    `).run(
+      pet.level, pet.experience, pet.hunger, pet.happiness,
+      pet.health, pet.energy, pet.age,
+      pet.lastFed.toISOString(), pet.lastPlayed.toISOString(), pet.lastSlept.toISOString(),
+      pet.id
+    );
   }
 
   private updatePetStats(pet: Pet): void {

@@ -1,13 +1,34 @@
-import { Pet, ApiResponse, CreatePetRequest } from './types';
+import { Pet, ApiResponse, CreatePetRequest, RegisterRequest, LoginRequest, AuthResult } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+function getAuthToken(): string | null {
+  return localStorage.getItem('auth_token');
+}
+
+function setAuthToken(token: string): void {
+  localStorage.setItem('auth_token', token);
+}
+
+function clearAuthToken(): void {
+  localStorage.removeItem('auth_token');
+}
+
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
   try {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        ...headers,
         ...options?.headers,
       },
     });
@@ -23,8 +44,43 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<Api
 }
 
 export const api = {
+  // Auth
+  register: async (data: RegisterRequest) => {
+    const response = await fetchAPI<AuthResult>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (response.success && response.data) {
+      setAuthToken(response.data.token);
+    }
+    return response;
+  },
+
+  login: async (data: LoginRequest) => {
+    const response = await fetchAPI<AuthResult>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (response.success && response.data) {
+      setAuthToken(response.data.token);
+    }
+    return response;
+  },
+
+  logout: () => {
+    clearAuthToken();
+  },
+
+  isAuthenticated: () => {
+    return getAuthToken() !== null;
+  },
+
+  getCurrentUser: () => fetchAPI<{ id: string; username: string; createdAt: string }>('/auth/me'),
+
+  // Species
   getSpecies: () => fetchAPI<string[]>('/species'),
   
+  // Pets
   getPets: () => fetchAPI<Pet[]>('/pets'),
   
   getPet: (id: string) => fetchAPI<Pet>(`/pets/${id}`),

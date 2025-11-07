@@ -47,6 +47,12 @@ function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
 }
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showRegister, setShowRegister] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  
   const [pets, setPets] = useState<Pet[]>([]);
   const [species, setSpecies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +66,28 @@ function App() {
   });
 
   useEffect(() => {
-    loadData();
+    checkAuth();
   }, []);
+
+  const checkAuth = async () => {
+    setLoading(true);
+    if (api.isAuthenticated()) {
+      const userRes = await api.getCurrentUser();
+      if (userRes.success && userRes.data) {
+        setIsAuthenticated(true);
+        setCurrentUser(userRes.data.username);
+        await loadData();
+      } else {
+        // Token expired or invalid
+        api.logout();
+        setIsAuthenticated(false);
+        setLoading(false);
+      }
+    } else {
+      setIsAuthenticated(false);
+      setLoading(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -73,6 +99,11 @@ function App() {
     ]);
 
     if (!petsRes.success) {
+      if (petsRes.error?.includes('Authentication') || petsRes.error?.includes('token')) {
+        // Session expired
+        handleLogout();
+        return;
+      }
       setError(petsRes.error || 'Failed to load pets');
     } else {
       setPets(petsRes.data || []);
@@ -88,6 +119,37 @@ function App() {
     }
 
     setLoading(false);
+  };
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!username.trim() || !password) {
+      setError('Please enter both username and password');
+      return;
+    }
+
+    const res = showRegister 
+      ? await api.register({ username: username.trim(), password })
+      : await api.login({ username: username.trim(), password });
+
+    if (!res.success) {
+      setError(res.error || 'Authentication failed');
+    } else if (res.data) {
+      setIsAuthenticated(true);
+      setCurrentUser(res.data.user.username);
+      setUsername('');
+      setPassword('');
+      await loadData();
+    }
+  };
+
+  const handleLogout = () => {
+    api.logout();
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setPets([]);
   };
 
   const handleCreatePet = async (e: React.FormEvent) => {
@@ -168,9 +230,70 @@ function App() {
     );
   }
 
+  if (!isAuthenticated) {
+    return (
+      <div className="app">
+        <h1>🐾 Digi-Pets 🐾</h1>
+
+        {error && <div className="error-message">{error}</div>}
+
+        <form onSubmit={handleAuth} className="create-pet-form">
+          <h2>{showRegister ? 'Create Account' : 'Login'}</h2>
+          <div className="form-group">
+            <label htmlFor="username">Username:</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
+              minLength={3}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password:</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              minLength={6}
+            />
+          </div>
+          <button type="submit">{showRegister ? 'Register' : 'Login'}</button>
+          <button 
+            type="button" 
+            onClick={() => {
+              setShowRegister(!showRegister);
+              setError(null);
+            }}
+            style={{ background: '#666', marginTop: '0.5rem' }}
+          >
+            {showRegister ? 'Already have an account? Login' : 'Need an account? Register'}
+          </button>
+        </form>
+
+        <div className="empty-state">
+          {showRegister 
+            ? 'Create an account to start your Digi-Pet journey!' 
+            : 'Login to manage your Digi-Pets'}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
-      <h1>🐾 Digi-Pets 🐾</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h1 style={{ margin: 0 }}>🐾 Digi-Pets 🐾</h1>
+        <div style={{ color: 'white', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span>Welcome, {currentUser}!</span>
+          <button onClick={handleLogout} style={{ padding: '0.5rem 1rem' }}>
+            Logout
+          </button>
+        </div>
+      </div>
 
       {error && <div className="error-message">{error}</div>}
 
