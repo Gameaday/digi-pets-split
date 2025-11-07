@@ -3,6 +3,49 @@ import { Pet } from './types';
 import { api } from './api';
 import './App.css';
 
+interface ConfirmDialogProps {
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '2rem',
+        borderRadius: '15px',
+        maxWidth: '400px',
+        width: '90%',
+        textAlign: 'center',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
+      }}>
+        <p style={{ color: '#333', marginBottom: '1.5rem', fontSize: '1.1rem' }}>{message}</p>
+        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+          <button onClick={onConfirm} style={{ flex: 1 }}>
+            Yes
+          </button>
+          <button onClick={onCancel} style={{ flex: 1, background: '#666' }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [species, setSpecies] = useState<string[]>([]);
@@ -10,6 +53,11 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [newPetName, setNewPetName] = useState('');
   const [selectedSpecies, setSelectedSpecies] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{ show: boolean; petId: string; petName: string }>({
+    show: false,
+    petId: '',
+    petName: '',
+  });
 
   useEffect(() => {
     loadData();
@@ -87,17 +135,22 @@ function App() {
     }
   };
 
-  const handleDelete = async (petId: string) => {
-    if (!confirm('Are you sure you want to release this pet?')) {
-      return;
-    }
+  const handleDeleteClick = (petId: string, petName: string) => {
+    setConfirmDialog({ show: true, petId, petName });
+  };
 
-    const res = await api.deletePet(petId);
+  const handleDeleteConfirm = async () => {
+    const res = await api.deletePet(confirmDialog.petId);
     if (!res.success) {
       setError(res.error || 'Failed to delete pet');
     } else {
       await loadData();
     }
+    setConfirmDialog({ show: false, petId: '', petName: '' });
+  };
+
+  const handleDeleteCancel = () => {
+    setConfirmDialog({ show: false, petId: '', petName: '' });
   };
 
   const getStatColor = (value: number): string => {
@@ -120,6 +173,14 @@ function App() {
       <h1>🐾 Digi-Pets 🐾</h1>
 
       {error && <div className="error-message">{error}</div>}
+
+      {confirmDialog.show && (
+        <ConfirmDialog
+          message={`Are you sure you want to release ${confirmDialog.petName}?`}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+        />
+      )}
 
       <form onSubmit={handleCreatePet} className="create-pet-form">
         <h2>Create New Pet</h2>
@@ -253,7 +314,7 @@ function App() {
                 </button>
                 <button
                   className="delete-btn"
-                  onClick={() => handleDelete(pet.id)}
+                  onClick={() => handleDeleteClick(pet.id, pet.name)}
                 >
                   🗑️ Release
                 </button>
