@@ -50,6 +50,7 @@ export class DatabaseService {
         last_fed TEXT NOT NULL,
         last_played TEXT NOT NULL,
         last_slept TEXT NOT NULL,
+        last_stat_update TEXT NOT NULL DEFAULT '',
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
@@ -68,6 +69,12 @@ export class DatabaseService {
     
     try {
       this.db.exec(`ALTER TABLE pets ADD COLUMN stage TEXT NOT NULL DEFAULT 'baby'`);
+    } catch (e) {
+      // Column already exists
+    }
+
+    try {
+      this.db.exec(`ALTER TABLE pets ADD COLUMN last_stat_update TEXT NOT NULL DEFAULT ''`);
     } catch (e) {
       // Column already exists
     }

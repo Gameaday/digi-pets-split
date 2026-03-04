@@ -37,6 +37,22 @@ body {
   text-align: center;
 }
 
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.header-user {
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
@@ -44,6 +60,8 @@ h1 {
   color: #fff;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
+
+/* ── Forms ──────────────────────────────────────────────────────────────────── */
 
 .create-pet-form {
   background: rgba(255, 255, 255, 0.1);
@@ -74,6 +92,7 @@ h1 {
   border-radius: 8px;
   font-size: 1rem;
   background: rgba(255, 255, 255, 0.9);
+  color: #333;
   transition: all 0.3s;
 }
 
@@ -83,6 +102,8 @@ h1 {
   border-color: #667eea;
   background: #fff;
 }
+
+/* ── Buttons ────────────────────────────────────────────────────────────────── */
 
 button {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -96,6 +117,7 @@ button {
   font-weight: 600;
   margin: 0.5rem;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  position: relative;
 }
 
 button:hover {
@@ -112,6 +134,27 @@ button:disabled {
   cursor: not-allowed;
   transform: none;
 }
+
+.btn-secondary {
+  background: #666;
+}
+
+.delete-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* Cooldown badge inside action buttons */
+.cooldown-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+
+/* ── Pet grid & cards ──────────────────────────────────────────────────────── */
 
 .pets-grid {
   display: grid;
@@ -138,14 +181,14 @@ button:disabled {
 .pet-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
   border-bottom: 2px solid #f0f0f0;
 }
 
 .pet-name {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: bold;
   color: #667eea;
 }
@@ -154,6 +197,27 @@ button:disabled {
   color: #666;
   font-size: 0.9rem;
 }
+
+.pet-mode {
+  font-size: 0.75rem;
+  color: #999;
+  margin-top: 2px;
+}
+
+.pet-level {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #764ba2;
+  white-space: nowrap;
+}
+
+.pet-age {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+
+/* ── Stats ──────────────────────────────────────────────────────────────────── */
 
 .pet-stats {
   margin: 1rem 0;
@@ -172,18 +236,17 @@ button:disabled {
 }
 
 .stat-bar {
-  height: 20px;
+  height: 16px;
   background: #e0e0e0;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow: hidden;
-  position: relative;
 }
 
 .stat-fill {
   height: 100%;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-  transition: width 0.3s;
-  border-radius: 10px;
+  transition: width 0.4s ease;
+  border-radius: 8px;
 }
 
 .stat-fill.low {
@@ -194,6 +257,8 @@ button:disabled {
   background: linear-gradient(90deg, #fad961 0%, #f76b1c 100%);
 }
 
+/* ── Action buttons ─────────────────────────────────────────────────────────── */
+
 .pet-actions {
   display: flex;
   flex-wrap: wrap;
@@ -203,15 +268,31 @@ button:disabled {
 
 .pet-actions button {
   flex: 1;
-  min-width: 100px;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
+  min-width: 90px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
   margin: 0;
 }
 
-.delete-btn {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+/* ── Egg view ────────────────────────────────────────────────────────────────── */
+
+.egg-view {
+  padding: 1.5rem;
+  text-align: center;
 }
+
+.egg-emoji {
+  font-size: 4rem;
+  margin-bottom: 0.75rem;
+}
+
+.egg-description {
+  color: #666;
+  margin-bottom: 1.25rem;
+  line-height: 1.6;
+}
+
+/* ── Notifications ──────────────────────────────────────────────────────────── */
 
 .error-message {
   background: rgba(245, 87, 108, 0.2);
@@ -221,6 +302,56 @@ button:disabled {
   margin: 1rem 0;
   border-left: 4px solid #f5576c;
 }
+
+.success-message {
+  background: rgba(56, 239, 125, 0.2);
+  color: #fff;
+  padding: 1rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  border-left: 4px solid #38ef7d;
+}
+
+/* ── Modal dialog ───────────────────────────────────────────────────────────── */
+
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-box {
+  background: white;
+  padding: 2rem;
+  border-radius: 15px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  color: #333;
+}
+
+.dialog-box p {
+  margin-bottom: 1.5rem;
+  font-size: 1.05rem;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.dialog-actions button {
+  flex: 1;
+  margin: 0;
+}
+
+/* ── Misc ────────────────────────────────────────────────────────────────────── */
 
 .loading {
   color: #fff;
@@ -238,6 +369,8 @@ button:disabled {
   margin-top: 2rem;
 }
 
+/* ── Responsive ──────────────────────────────────────────────────────────────── */
+
 @media (max-width: 768px) {
   #root {
     padding: 1rem;
@@ -245,6 +378,12 @@ button:disabled {
 
   h1 {
     font-size: 2rem;
+  }
+
+  .app-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start;
   }
 
   .pets-grid {

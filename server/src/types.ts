@@ -16,6 +16,7 @@ export interface Pet {
   lastFed: Date;
   lastPlayed: Date;
   lastSlept: Date;
+  lastStatUpdate: Date;
 }
 
 export interface User {
